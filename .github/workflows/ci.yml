@@ -1,0 +1,17 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, release]
+  pull_request:
+    branches: [main, develop, release]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint shell scripts
+        run: echo "Add shellcheck / hadolint here."
+      - name: Validate workflows
+        run: echo "Add actionlint here."
