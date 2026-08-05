@@ -1,0 +1,42 @@
+# Local development stack for the Cocarr platform.
+# Brings up MySQL + Adminer so you can run cocarr-core-api and
+# cocarr-platform-web against a local database.
+#
+#   docker compose -f docker/docker-compose.dev.yml up -d
+#   # then, in cocarr-core-api:   npm install && npm run dev
+#   #       in cocarr-platform-web: npm install && npm run dev
+#
+# Point core-api's .env at:
+#   DB_HOST=127.0.0.1  DB_PORT=3306  DB_NAME=cocarr  DB_USER=cocarr  DB_PASS=cocarr
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: cocarr-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-cocarr}
+      MYSQL_USER: ${MYSQL_USER:-cocarr}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cocarr}
+    ports:
+      - "3306:3306"
+    volumes:
+      - cocarr-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  adminer:
+    image: adminer:4
+    container_name: cocarr-adminer
+    restart: unless-stopped
+    depends_on:
+      - mysql
+    ports:
+      - "8080:8080"
+
+volumes:
+  cocarr-mysql-data:
