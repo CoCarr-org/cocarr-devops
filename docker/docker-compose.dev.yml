@@ -1,13 +1,26 @@
 # Local development stack for the Cocarr platform.
-# Brings up MySQL + Adminer so you can run cocarr-core-api and
-# cocarr-platform-web against a local database.
 #
 #   docker compose -f docker/docker-compose.dev.yml up -d
-#   # then, in cocarr-core-api:   npm install && npm run dev
-#   #       in cocarr-platform-web: npm install && npm run dev
 #
-# Point core-api's .env at:
-#   DB_HOST=127.0.0.1  DB_PORT=3306  DB_NAME=cocarr  DB_USER=cocarr  DB_PASS=cocarr
+# ONE INSTANCE, ONE SCHEMA PER SERVICE — the same topology as production, so a
+# laptop reproduces the thing that actually breaks. mysql/init/ provisions all
+# five schemas and a per-service user granted ONLY its own schema; see
+# cocarr-docs/DATABASE.md for why the grants ARE the isolation.
+#
+#   service                       DB_NAME               DB_USER / DB_PASS
+#   cocarr-core-api               cocarr_core           svc_core / dev_core
+#   cocarr-authorization-service  cocarr_iam            svc_iam / dev_iam
+#   cocarr-workspace-api          cocarr_workspace      svc_workspace / dev_workspace
+#   cocarr-identity-service       cocarr_identity       svc_identity / dev_identity
+#   cocarr-notification-service   cocarr_notification   svc_notification / dev_notification
+#
+# All with DB_HOST=127.0.0.1 DB_PORT=3306. Then, in each service:
+#
+#   npm run migrate:up      # the schema comes from migrations, never from boot
+#   npm run dev
+#
+# The init scripts run ONCE, on the first start of an EMPTY volume. After
+# editing them:  docker compose ... down -v   (the -v matters)  then up -d.
 
 services:
   mysql:
@@ -16,13 +29,16 @@ services:
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
-      MYSQL_DATABASE: ${MYSQL_DATABASE:-cocarr}
-      MYSQL_USER: ${MYSQL_USER:-cocarr}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-cocarr}
+      # MYSQL_DATABASE / MYSQL_USER / MYSQL_PASSWORD are deliberately ABSENT.
+      # They create ONE shared database and ONE account with rights over it —
+      # the topology this platform moved away from. init/ creates the five
+      # schemas and their per-service users instead.
     ports:
       - "3306:3306"
     volumes:
       - cocarr-mysql-data:/var/lib/mysql
+      # Executed in filename order, on first start of an empty volume only.
+      - ./mysql/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p${MYSQL_ROOT_PASSWORD:-root}"]
       interval: 10s
